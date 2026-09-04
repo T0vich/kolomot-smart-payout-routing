@@ -125,7 +125,7 @@
 4. Проверить глазами: количество решений == количество заявок,
    `operation_id` совпадают с новой очередью, а не со старой.
 5. `rake validate FILE=routing_decisions_test.json` — прогнать валидатор.
-6. Коммит и push **в main**. Убедиться, что CI зелёный.
+6. Коммит и push **в main** через PR (см. «Защита main» ниже). Дождаться зелёного CI и смержить.
 7. Открыть GitHub в браузере, ветка main, глазами увидеть оба файла в корне.
 
 Файл называется неправильно / лежит не в корне / не в main = **0 баллов из 40**.
@@ -135,7 +135,34 @@
 
 ## Как работаем в git
 
-- Ветки + PR, прямой push в `main` не делаем.
+- Ветки + PR, прямой push в `main` в обычной работе не делаем.
 - Ветки: `docs/...`, `test/...`, `fix/...`.
 - CI (GitHub Actions) гоняет тесты и валидатор организаторов на каждый PR.
 - Мержим только зелёное.
+
+### Защита main и что это значит на стопкоде
+
+`main` защищён: требуется зелёный чек `test`, force-push и удаление ветки
+запрещены. **Прямой push в `main` отвергается даже у администратора** —
+проверено на практике, GitHub отвечает `Required status check "test" is expected`.
+
+Значит сдаваемые файлы заливаются через PR. CI занимает 10–15 секунд,
+так что это примерно минута работы:
+
+```bash
+git checkout -b submit/final
+git add routing_decisions_test.json routing_report_test.json
+git commit -m "Сдаваемые артефакты"
+git push -u origin submit/final
+gh pr create --fill && gh pr merge --squash --delete-branch
+```
+
+Если минуты жалко и хочется пушить напрямую — снять требование чека
+может владелец репозитория одной командой (защита от force-push
+и удаления ветки при этом остаётся):
+
+```bash
+gh api -X DELETE repos/T0vich/kolomot-smart-payout-routing/branches/main/protection/required_status_checks
+```
+
+Решить это **до** стопкода, а не в последний час.
