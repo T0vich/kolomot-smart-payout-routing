@@ -1,0 +1,160 @@
+# Конфигурация роутинга выплат.
+#
+# Всё, что здесь лежит, меняется без правки Ruby-кода: веса целей, включённые
+# жёсткие ограничения, диапазоны сумм, лимиты интенсивности и финансовые
+# обязательства. Профиль выбирается флагом --profile.
+
+active_profile: balanced
+
+defaults:
+  # Куда уходит заявка, если внешних допустимых провайдеров не осталось.
+  fallback_provider: spacepayments
+
+  # Сколько кандидатов подряд пробуем, прежде чем уйти на self-provider.
+  max_attempts: 3
+
+  # Разрыв в итоговом балле, ниже которого считаем результат ничьёй
+  # и разрешаем конфликт явным приоритетом политик.
+  tie_break_epsilon: 0.02
+
+  # Явный приоритет целей при ничье.
+  # Обязательство по обороту выше целевых долей: за недобор платят по договору,
+  # а долю можно добрать следующими заявками.
+  conflict_order:
+    - turnover_commitment
+    - traffic_share
+    - conversion
+    - volume_share
+    - cascade_priority
+    - amount_band
+    - load_balance
+
+  # Доля исторической конверсии в эффективной: 0 — доверяем только снимку,
+  # 1 — только истории из operations_history.csv.
+  history_blend: 0.3
+
+  # Прогревать ли доли историческими данными (очередь продолжает начатый день).
+  warm_start: false
+
+  # Жёсткие ограничения. enabled: false выключает правило целиком.
+  constraints:
+    status: { enabled: true }
+    amount_range: { enabled: true }
+    bank_filter: { enabled: true }
+    daily_amount_limit: { enabled: true }
+    turnover_max: { enabled: true }
+    in_progress: { enabled: true }
+    requisites: { enabled: true }
+    margin: { enabled: true }
+    rate_limit: { enabled: true }
+
+  # Поля, которых нет в снимке провайдеров, но которые нужны стратегиям 2, 6 и 7.
+  provider_defaults:
+    requests_per_minute_limit: 60
+    daily_turnover_min: 0
+
+  provider_overrides:
+    vipay:
+      volume_share_pct: 45
+      requests_per_minute_limit: 15
+      daily_turnover_max: 5000000
+    payflow:
+      volume_share_pct: 30
+      requests_per_minute_limit: 7
+      daily_turnover_min: 2000000
+    quickpay:
+      volume_share_pct: 25
+      requests_per_minute_limit: 30
+    spacepayments:
+      role: fallback
+      requests_per_minute_limit: 120
+
+  # Стратегия 4: диапазон суммы влияет на предпочтение, а не только на допуск.
+  amount_band:
+    match_score: 1.0
+    miss_score: 0.25
+
+  amount_bands:
+    - { from: 0,      to: 50000,  prefer: [payflow] }
+    - { from: 50001,  to: 100000, prefer: [vipay] }
+    - { from: 100001, to: null,   prefer: [quickpay] }
+
+  simulation:
+    seed: 20260730
+    # Отказ провайдера в приёме заявки. Выключен в сдаваемом прогоне,
+    # чтобы результат был воспроизводим; механика каскада живёт в профиле demo.
+    declines:
+      enabled: false
+      share_of_failures: 0.25
+      timeout_share: 0.4
+    expired_share_of_failures: 0.35
+    latency_jitter_pct: 30
+
+profiles:
+  balanced:
+    description: >-
+      Совместный учёт всех семи целей. Основной вес — на соблюдении целевых
+      долей и конверсии, фин. обязательства решают спорные случаи.
+    weights:
+      traffic_share: 0.26
+      volume_share: 0.16
+      conversion: 0.18
+      turnover_commitment: 0.14
+      cascade_priority: 0.10
+      amount_band: 0.09
+      load_balance: 0.07
+
+  cascade:
+    description: "Классический каскад: строго по priority, остальные цели не учитываются."
+    weights:
+      cascade_priority: 1.0
+
+  traffic:
+    description: Только целевые доли по количеству заявок.
+    weights:
+      traffic_share: 1.0
+
+  volume:
+    description: Распределение по денежному объёму.
+    weights:
+      volume_share: 0.75
+      traffic_share: 0.25
+
+  conversion_first:
+    description: Максимизация успешности выплат, доли вторичны.
+    weights:
+      conversion: 0.6
+      traffic_share: 0.2
+      load_balance: 0.2
+
+  commitments:
+    description: Приоритет финансовых обязательств по суточному обороту.
+    weights:
+      turnover_commitment: 0.5
+      traffic_share: 0.25
+      conversion: 0.15
+      load_balance: 0.10
+
+  demo_failover:
+    # Демонстрационный, а не содержательный профиль: отличается симуляцией,
+    # а не политикой выбора, поэтому в сравнении политик не участвует.
+    demo: true
+    description: >-
+      Демонстрационный профиль: провайдеры отказываются принимать заявки,
+      виден каскад попыток и уход на self-provider.
+    weights:
+      traffic_share: 0.26
+      volume_share: 0.16
+      conversion: 0.18
+      turnover_commitment: 0.14
+      cascade_priority: 0.10
+      amount_band: 0.09
+      load_balance: 0.07
+    simulation:
+      seed: 20260730
+      declines:
+        enabled: true
+        rate: 0.45
+        timeout_share: 0.4
+      expired_share_of_failures: 0.35
+      latency_jitter_pct: 30

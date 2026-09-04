@@ -1,0 +1,30 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Статическая HTML-страница по routing_report.json — для защиты и чекпоинтов.
+
+require 'optparse'
+require_relative '../lib/smart_routing'
+
+options = { report: 'routing_report.json', decisions: 'routing_decisions.json', out: 'out/dashboard.html' }
+OptionParser.new do |opts|
+  opts.banner = 'Использование: ruby bin/dashboard [опции]'
+  opts.on('-r', '--report PATH') { |v| options[:report] = v }
+  opts.on('-d', '--decisions PATH') { |v| options[:decisions] = v }
+  opts.on('-o', '--out PATH') { |v| options[:out] = v }
+  opts.on('-h', '--help') { puts opts; exit 0 }
+end.parse!
+
+begin
+  report = SmartRouting::Loaders.read_json(options[:report], what: 'Отчёт')
+  decisions = File.file?(options[:decisions]) ? SmartRouting::Loaders.read_json(options[:decisions], what: 'Решения') : nil
+
+  html = SmartRouting::Analytics::Dashboard.new(report, decisions: decisions).render
+  dir = File.dirname(options[:out])
+  Dir.mkdir(dir) unless dir == '.' || Dir.exist?(dir)
+  File.write(options[:out], html)
+  puts "Записано: #{options[:out]}"
+rescue SmartRouting::Error => e
+  warn "Ошибка: #{e.message}"
+  exit 1
+end

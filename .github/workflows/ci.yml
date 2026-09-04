@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Установить Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+
+      - name: Тесты
+        run: rake test
+
+      - name: Прогон публичной очереди
+        run: ruby bin/route --quiet
+
+      - name: Валидатор организаторов
+        run: ruby scripts/validate_10.rb routing_decisions.json
+
+      # Сдаваемые файлы появляются за час до стопкода. Как только они есть,
+      # каждый push обязан проходить проверку — сломанный main стоит 40 баллов.
+      - name: Проверить сдаваемый routing_decisions_test.json
+        run: |
+          if [ -f routing_decisions_test.json ]; then
+            ruby scripts/validate_10.rb routing_decisions_test.json || true
+            ruby -rjson -e '
+              decisions = JSON.parse(File.read("routing_decisions_test.json"))
+              abort "routing_decisions_test.json должен быть массивом" unless decisions.is_a?(Array)
+              abort "routing_decisions_test.json пуст" if decisions.empty?
+              decisions.each_with_index do |d, i|
+                %w[operation_id selected_provider attempts simulated_result].each do |f|
+                  abort "решение ##{i}: нет поля #{f}" unless d.key?(f)
+                end
+              end
+              puts "routing_decisions_test.json: #{decisions.size} решений, структура корректна"
+            '
+          else
+            echo "routing_decisions_test.json ещё не сформирован — пропускаем"
+          fi
+
+      - name: Проверить сдаваемый routing_report_test.json
+        run: |
+          if [ -f routing_report_test.json ]; then
+            ruby -rjson -e '
+              report = JSON.parse(File.read("routing_report_test.json"))
+              required = %w[period total_operations distribution skip_reasons
+                            projected_daily_utilization recommendations]
+              missing = required.reject { |k| report.key?(k) }
+              abort "в отчёте нет ключей: #{missing.join(", ")}" unless missing.empty?
+              puts "routing_report_test.json: структура корректна"
+            '
+          else
+            echo "routing_report_test.json ещё не сформирован — пропускаем"
+          fi

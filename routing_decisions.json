@@ -1,0 +1,1015 @@
+[
+  {
+    "operation_id": "op_101",
+    "selected_provider": "vipay",
+    "attempts": [
+      {
+        "provider": "vipay",
+        "decision": "selected",
+        "reason": "best_composite_score",
+        "details": "балл 0.77 против 0.47 у payflow; основной вклад — «Доля по количеству заявок». доля по количеству 0.0% при цели 40.0% (недобирает 40.0 п.п.); доля по объёму 0.0% при цели 45.0% (недобирает 45.0 п.п.); conversion_24h 0.87, по истории 0.78 (смешано 0.3); оборот 3200000 ₽ при потолке 5000000 ₽/сутки; priority 1 в каскаде; диапазон 0–50000 → payflow; vipay вне профиля; загрузка 64.0% по узкому месту «дневной оборот»",
+        "stage": "routed",
+        "score": 0.77,
+        "score_breakdown": {
+          "traffic_share": {
+            "score": 1.0,
+            "weight": 0.26,
+            "contribution": 0.26
+          },
+          "volume_share": {
+            "score": 1.0,
+            "weight": 0.16,
+            "contribution": 0.16
+          },
+          "conversion": {
+            "score": 1.0,
+            "weight": 0.18,
+            "contribution": 0.18
+          },
+          "turnover_commitment": {
+            "score": 0.18,
+            "weight": 0.14,
+            "contribution": 0.03
+          },
+          "cascade_priority": {
+            "score": 1.0,
+            "weight": 0.1,
+            "contribution": 0.1
+          },
+          "amount_band": {
+            "score": 0.25,
+            "weight": 0.09,
+            "contribution": 0.02
+          },
+          "load_balance": {
+            "score": 0.36,
+            "weight": 0.07,
+            "contribution": 0.03
+          }
+        }
+      },
+      {
+        "provider": "payflow",
+        "decision": "skipped",
+        "reason": "lower_score",
+        "details": "балл 0.47 ниже, чем у выбранного провайдера",
+        "stage": "scoring",
+        "score": 0.47,
+        "score_breakdown": {
+          "traffic_share": {
+            "score": 0.67,
+            "weight": 0.26,
+            "contribution": 0.17
+          },
+          "volume_share": {
+            "score": 0.25,
+            "weight": 0.16,
+            "contribution": 0.04
+          },
+          "conversion": {
+            "score": 0.27,
+            "weight": 0.18,
+            "contribution": 0.05
+          },
+          "turnover_commitment": {
+            "score": 0.5,
+            "weight": 0.14,
+            "contribution": 0.07
+          },
+          "cascade_priority": {
+            "score": 0.5,
+            "weight": 0.1,
+            "contribution": 0.05
+          },
+          "amount_band": {
+            "score": 1.0,
+            "weight": 0.09,
+            "contribution": 0.09
+          },
+          "load_balance": {
+            "score": 0.03,
+            "weight": 0.07,
+            "contribution": 0.0
+          }
+        }
+      },
+      {
+        "provider": "quickpay",
+        "decision": "skipped",
+        "reason": "lower_score",
+        "details": "балл 0.15 ниже, чем у выбранного провайдера",
+        "stage": "scoring",
+        "score": 0.15,
+        "score_breakdown": {
+          "traffic_share": {
+            "score": 0.0,
+            "weight": 0.26,
+            "contribution": 0.0
+          },
+          "volume_share": {
+            "score": 0.0,
+            "weight": 0.16,
+            "contribution": 0.0
+          },
+          "conversion": {
+            "score": 0.0,
+            "weight": 0.18,
+            "contribution": 0.0
+          },
+          "turnover_commitment": {
+            "score": 0.5,
+            "weight": 0.14,
+            "contribution": 0.07
+          },
+          "cascade_priority": {
+            "score": 0.0,
+            "weight": 0.1,
+            "contribution": 0.0
+          },
+          "amount_band": {
+            "score": 0.25,
+            "weight": 0.09,
+            "contribution": 0.02
+          },
+          "load_balance": {
+            "score": 0.86,
+            "weight": 0.07,
+            "contribution": 0.06
+          }
+        }
+      }
+    ],
+    "simulated_result": "approved",
+    "latency_sec": 33,
+    "amount": 15000.0,
+    "bank": "sberbank",
+    "eligible_providers": [
+      "vipay",
+      "payflow",
+      "quickpay"
+    ],
+    "routing_profile": "balanced",
+    "fallback_used": false
+  },
+  {
+    "operation_id": "op_102",
+    "selected_provider": "payflow",
+    "attempts": [
+      {
+        "provider": "vipay",
+        "decision": "skipped",
+        "reason": "bank_not_in_list",
+        "details": "alfa отсутствует в banks [sberbank, tinkoff, vtb]",
+        "stage": "hard_filter"
+      },
+      {
+        "provider": "payflow",
+        "decision": "selected",
+        "reason": "best_composite_score",
+        "details": "балл 0.86 против 0.15 у quickpay; основной вклад — «Доля по количеству заявок». доля по количеству 0.0% при цели 35.0% (недобирает 35.0 п.п.); доля по объёму 0.0% при цели 30.0% (недобирает 30.0 п.п.); conversion_24h 0.91, по истории 0.47 (смешано 0.3); обязательство 2000000 ₽/сутки выполнено; priority 2 в каскаде; диапазон 0–50000 → payflow; payflow профильный; загрузка 96.67% по узкому месту «дневной оборот»",
+        "stage": "routed",
+        "score": 0.86,
+        "score_breakdown": {
+          "traffic_share": {
+            "score": 1.0,
+            "weight": 0.26,
+            "contribution": 0.26
+          },
+          "volume_share": {
+            "score": 1.0,
+            "weight": 0.16,
+            "contribution": 0.16
+          },
+          "conversion": {
+            "score": 1.0,
+            "weight": 0.18,
+            "contribution": 0.18
+          },
+          "turnover_commitment": {
+            "score": 0.5,
+            "weight": 0.14,
+            "contribution": 0.07
+          },
+          "cascade_priority": {
+            "score": 1.0,
+            "weight": 0.1,
+            "contribution": 0.1
+          },
+          "amount_band": {
+            "score": 1.0,
+            "weight": 0.09,
+            "contribution": 0.09
+          },
+          "load_balance": {
+            "score": 0.03,
+            "weight": 0.07,
+            "contribution": 0.0
+          }
+        }
+      },
+      {
+        "provider": "quickpay",
+        "decision": "skipped",
+        "reason": "lower_score",
+        "details": "балл 0.15 ниже, чем у выбранного провайдера",
+        "stage": "scoring",
+        "score": 0.15,
+        "score_breakdown": {
+          "traffic_share": {
+            "score": 0.0,
+            "weight": 0.26,
+            "contribution": 0.0
+          },
+          "volume_share": {
+            "score": 0.0,
+            "weight": 0.16,
+            "contribution": 0.0
+          },
+          "conversion": {
+            "score": 0.0,
+            "weight": 0.18,
+            "contribution": 0.0
+          },
+          "turnover_commitment": {
+            "score": 0.5,
+            "weight": 0.14,
+            "contribution": 0.07
+          },
+          "cascade_priority": {
+            "score": 0.0,
+            "weight": 0.1,
+            "contribution": 0.0
+          },
+          "amount_band": {
+            "score": 0.25,
+            "weight": 0.09,
+            "contribution": 0.02
+          },
+          "load_balance": {
+            "score": 0.86,
+            "weight": 0.07,
+            "contribution": 0.06
+          }
+        }
+      }
+    ],
+    "simulated_result": "approved",
+    "latency_sec": 57,
+    "amount": 48000.0,
+    "bank": "alfa",
+    "eligible_providers": [
+      "payflow",
+      "quickpay"
+    ],
+    "routing_profile": "balanced",
+    "fallback_used": false
+  },
+  {
+    "operation_id": "op_103",
+    "selected_provider": "quickpay",
+    "attempts": [
+      {
+        "provider": "vipay",
+        "decision": "skipped",
+        "reason": "amount_exceeds_limit",
+        "details": "150000 > limit_amount_max 100000",
+        "stage": "hard_filter"
+      },
+      {
+        "provider": "payflow",
+        "decision": "skipped",
+        "reason": "amount_exceeds_limit",
+        "details": "150000 > limit_amount_max 50000",
+        "stage": "hard_filter"
+      },
+      {
+        "provider": "quickpay",
+        "decision": "selected",
+        "reason": "only_eligible_provider",
+        "details": "единственный провайдер, прошедший hard-constraints; доля по количеству 0.0% при цели 25.0% (недобирает 25.0 п.п.); доля по объёму 0.0% при цели 25.0% (недобирает 25.0 п.п.); conversion_24h 0.79, по истории 0.68 (смешано 0.3); обязательств по обороту нет; priority 3 в каскаде; диапазон 100001–∞ → quickpay; quickpay профильный; загрузка 13.75% по узкому месту «дневной оборот»",
+        "stage": "routed",
+        "score": 0.62,
+        "score_breakdown": {
+          "traffic_share": {
+            "score": 0.5,
+            "weight": 0.26,
+            "contribution": 0.13
+          },
+          "volume_share": {
+            "score": 0.5,
+            "weight": 0.16,
+            "contribution": 0.08
+          },
+          "conversion": {
+            "score": 0.5,
+            "weight": 0.18,
+            "contribution": 0.09
+          },
+          "turnover_commitment": {
+            "score": 0.5,
+            "weight": 0.14,
+            "contribution": 0.07
+          },
+          "cascade_priority": {
+            "score": 1.0,
+            "weight": 0.1,
+            "contribution": 0.1
+          },
+          "amount_band": {
+            "score": 1.0,
+            "weight": 0.09,
+            "contribution": 0.09
+          },
+          "load_balance": {
+            "score": 0.86,
+            "weight": 0.07,
+            "contribution": 0.06
+          }
+        }
+      }
+    ],
+    "simulated_result": "approved",
+    "latency_sec": 30,
+    "amount": 150000.0,
+    "bank": "sberbank",
+    "eligible_providers": [
+      "quickpay"
+    ],
+    "routing_profile": "balanced",
+    "fallback_used": false
+  },
+  {
+    "operation_id": "op_104",
+    "selected_provider": "quickpay",
+    "attempts": [
+      {
+        "provider": "vipay",
+        "decision": "skipped",
+        "reason": "bank_not_in_list",
+        "details": "gazprombank отсутствует в banks [sberbank, tinkoff, vtb]",
+        "stage": "hard_filter"
+      },
+      {
+        "provider": "payflow",
+        "decision": "skipped",
+        "reason": "bank_not_in_list",
+        "details": "gazprombank отсутствует в banks [sberbank, alfa]",
+        "stage": "hard_filter"
+      },
+      {
+        "provider": "quickpay",
+        "decision": "selected",
+        "reason": "only_eligible_provider",
+        "details": "единственный провайдер, прошедший hard-constraints; доля по количеству 33.33% при цели 25.0% (перебирает 8.33 п.п.); доля по объёму 70.42% при цели 25.0% (перебирает 45.42 п.п.); conversion_24h 0.79, по истории 0.68 (смешано 0.3); обязательств по обороту нет; priority 3 в каскаде; диапазон 0–50000 → payflow; quickpay вне профиля; загрузка 15.63% по узкому месту «дневной оборот»",
+        "stage": "routed",
+        "score": 0.55,
+        "score_breakdown": {
+          "traffic_share": {
+            "score": 0.5,
+            "weight": 0.26,
+            "contribution": 0.13
+          },
+          "volume_share": {
+            "score": 0.5,
+            "weight": 0.16,
+            "contribution": 0.08
+          },
+          "conversion": {
+            "score": 0.5,
+            "weight": 0.18,
+            "contribution": 0.09
+          },
+          "turnover_commitment": {
+            "score": 0.5,
+            "weight": 0.14,
+            "contribution": 0.07
+          },
+          "cascade_priority": {
+            "score": 1.0,
+            "weight": 0.1,
+            "contribution": 0.1
+          },
+          "amount_band": {
+            "score": 0.25,
+            "weight": 0.09,
+            "contribution": 0.02
+          },
+          "load_balance": {
+            "score": 0.84,
+            "weight": 0.07,
+            "contribution": 0.06
+          }
+        }
+      }
+    ],
+    "simulated_result": "approved",
+    "latency_sec": 37,
+    "amount": 3000.0,
+    "bank": "gazprombank",
+    "eligible_providers": [
+      "quickpay"
+    ],
+    "routing_profile": "balanced",
+    "fallback_used": false
+  },
+  {
+    "operation_id": "op_105",
+    "selected_provider": "vipay",
+    "attempts": [
+      {
+        "provider": "payflow",
+        "decision": "skipped",
+        "reason": "bank_not_in_list",
+        "details": "tinkoff отсутствует в banks [sberbank, alfa]",
+        "stage": "hard_filter"
+      },
+      {
+        "provider": "vipay",
+        "decision": "selected",
+        "reason": "best_composite_score",
+        "details": "балл 0.77 против 0.15 у quickpay; основной вклад — «Доля по количеству заявок». доля по количеству 25.0% при цели 40.0% (недобирает 15.0 п.п.); доля по объёму 6.94% при цели 45.0% (недобирает 38.06 п.п.); conversion_24h 0.87, по истории 0.78 (смешано 0.3); оборот 3215000 ₽ при потолке 5000000 ₽/сутки; priority 1 в каскаде; диапазон 0–50000 → payflow; vipay вне профиля; загрузка 64.3% по узкому месту «дневной оборот»",
+        "stage": "routed",
+        "score": 0.77,
+        "score_breakdown": {
+          "traffic_share": {
+            "score": 1.0,
+            "weight": 0.26,
+            "contribution": 0.26
+          },
+          "volume_share": {
+            "score": 1.0,
+            "weight": 0.16,
+            "contribution": 0.16
+          },
+          "conversion": {
+            "score": 1.0,
+            "weight": 0.18,
+            "contribution": 0.18
+          },
+          "turnover_commitment": {
+            "score": 0.18,
+            "weight": 0.14,
+            "contribution": 0.02
+          },
+          "cascade_priority": {
+            "score": 1.0,
+            "weight": 0.1,
+            "contribution": 0.1
+          },
+          "amount_band": {
+            "score": 0.25,
+            "weight": 0.09,
+            "contribution": 0.02
+          },
+          "load_balance": {
+            "score": 0.36,
+            "weight": 0.07,
+            "contribution": 0.02
+          }
+        }
+      },
+      {
+        "provider": "quickpay",
+        "decision": "skipped",
+        "reason": "lower_score",
+        "details": "балл 0.15 ниже, чем у выбранного провайдера",
+        "stage": "scoring",
+        "score": 0.15,
+        "score_breakdown": {
+          "traffic_share": {
+            "score": 0.0,
+            "weight": 0.26,
+            "contribution": 0.0
+          },
+          "volume_share": {
+            "score": 0.0,
+            "weight": 0.16,
+            "contribution": 0.0
+          },
+          "conversion": {
+            "score": 0.0,
+            "weight": 0.18,
+            "contribution": 0.0
+          },
+          "turnover_commitment": {
+            "score": 0.5,
+            "weight": 0.14,
+            "contribution": 0.07
+          },
+          "cascade_priority": {
+            "score": 0.0,
+            "weight": 0.1,
+            "contribution": 0.0
+          },
+          "amount_band": {
+            "score": 0.25,
+            "weight": 0.09,
+            "contribution": 0.02
+          },
+          "load_balance": {
+            "score": 0.84,
+            "weight": 0.07,
+            "contribution": 0.06
+          }
+        }
+      }
+    ],
+    "simulated_result": "approved",
+    "latency_sec": 27,
+    "amount": 25000.0,
+    "bank": "tinkoff",
+    "eligible_providers": [
+      "vipay",
+      "quickpay"
+    ],
+    "routing_profile": "balanced",
+    "fallback_used": false
+  },
+  {
+    "operation_id": "op_106",
+    "selected_provider": "vipay",
+    "attempts": [
+      {
+        "provider": "payflow",
+        "decision": "skipped",
+        "reason": "amount_exceeds_limit",
+        "details": "52000 > limit_amount_max 50000",
+        "stage": "hard_filter"
+      },
+      {
+        "provider": "vipay",
+        "decision": "selected",
+        "reason": "best_composite_score",
+        "details": "балл 0.84 против 0.15 у quickpay; основной вклад — «Доля по количеству заявок». доля по количеству 40.0% при цели 40.0% (перебирает 0.0 п.п.); доля по объёму 16.6% при цели 45.0% (недобирает 28.4 п.п.); conversion_24h 0.87, по истории 0.78 (смешано 0.3); оборот 3240000 ₽ при потолке 5000000 ₽/сутки; priority 1 в каскаде; диапазон 50001–100000 → vipay; vipay профильный; загрузка 64.8% по узкому месту «дневной оборот»",
+        "stage": "routed",
+        "score": 0.84,
+        "score_breakdown": {
+          "traffic_share": {
+            "score": 1.0,
+            "weight": 0.26,
+            "contribution": 0.26
+          },
+          "volume_share": {
+            "score": 1.0,
+            "weight": 0.16,
+            "contribution": 0.16
+          },
+          "conversion": {
+            "score": 1.0,
+            "weight": 0.18,
+            "contribution": 0.18
+          },
+          "turnover_commitment": {
+            "score": 0.18,
+            "weight": 0.14,
+            "contribution": 0.02
+          },
+          "cascade_priority": {
+            "score": 1.0,
+            "weight": 0.1,
+            "contribution": 0.1
+          },
+          "amount_band": {
+            "score": 1.0,
+            "weight": 0.09,
+            "contribution": 0.09
+          },
+          "load_balance": {
+            "score": 0.35,
+            "weight": 0.07,
+            "contribution": 0.02
+          }
+        }
+      },
+      {
+        "provider": "quickpay",
+        "decision": "skipped",
+        "reason": "lower_score",
+        "details": "балл 0.15 ниже, чем у выбранного провайдера",
+        "stage": "scoring",
+        "score": 0.15,
+        "score_breakdown": {
+          "traffic_share": {
+            "score": 0.0,
+            "weight": 0.26,
+            "contribution": 0.0
+          },
+          "volume_share": {
+            "score": 0.0,
+            "weight": 0.16,
+            "contribution": 0.0
+          },
+          "conversion": {
+            "score": 0.0,
+            "weight": 0.18,
+            "contribution": 0.0
+          },
+          "turnover_commitment": {
+            "score": 0.5,
+            "weight": 0.14,
+            "contribution": 0.07
+          },
+          "cascade_priority": {
+            "score": 0.0,
+            "weight": 0.1,
+            "contribution": 0.0
+          },
+          "amount_band": {
+            "score": 0.25,
+            "weight": 0.09,
+            "contribution": 0.02
+          },
+          "load_balance": {
+            "score": 0.84,
+            "weight": 0.07,
+            "contribution": 0.06
+          }
+        }
+      }
+    ],
+    "simulated_result": "approved",
+    "latency_sec": 38,
+    "amount": 52000.0,
+    "bank": "sberbank",
+    "eligible_providers": [
+      "vipay",
+      "quickpay"
+    ],
+    "routing_profile": "balanced",
+    "fallback_used": false
+  },
+  {
+    "operation_id": "op_107",
+    "selected_provider": "payflow",
+    "attempts": [
+      {
+        "provider": "vipay",
+        "decision": "skipped",
+        "reason": "amount_below_minimum",
+        "details": "800 < limit_amount_min 1000",
+        "stage": "hard_filter"
+      },
+      {
+        "provider": "quickpay",
+        "decision": "skipped",
+        "reason": "amount_below_minimum",
+        "details": "800 < limit_amount_min 1000",
+        "stage": "hard_filter"
+      },
+      {
+        "provider": "payflow",
+        "decision": "selected",
+        "reason": "only_eligible_provider",
+        "details": "единственный провайдер, прошедший hard-constraints; доля по количеству 16.67% при цели 35.0% (недобирает 18.33 п.п.); доля по объёму 16.38% при цели 30.0% (недобирает 13.62 п.п.); conversion_24h 0.91, по истории 0.47 (смешано 0.3); обязательство 2000000 ₽/сутки выполнено; priority 2 в каскаде; диапазон 0–50000 → payflow; payflow профильный; загрузка 98.27% по узкому месту «дневной оборот»",
+        "stage": "routed",
+        "score": 0.56,
+        "score_breakdown": {
+          "traffic_share": {
+            "score": 0.5,
+            "weight": 0.26,
+            "contribution": 0.13
+          },
+          "volume_share": {
+            "score": 0.5,
+            "weight": 0.16,
+            "contribution": 0.08
+          },
+          "conversion": {
+            "score": 0.5,
+            "weight": 0.18,
+            "contribution": 0.09
+          },
+          "turnover_commitment": {
+            "score": 0.5,
+            "weight": 0.14,
+            "contribution": 0.07
+          },
+          "cascade_priority": {
+            "score": 1.0,
+            "weight": 0.1,
+            "contribution": 0.1
+          },
+          "amount_band": {
+            "score": 1.0,
+            "weight": 0.09,
+            "contribution": 0.09
+          },
+          "load_balance": {
+            "score": 0.02,
+            "weight": 0.07,
+            "contribution": 0.0
+          }
+        }
+      }
+    ],
+    "simulated_result": "approved",
+    "latency_sec": 64,
+    "amount": 800.0,
+    "bank": "sberbank",
+    "eligible_providers": [
+      "payflow"
+    ],
+    "routing_profile": "balanced",
+    "fallback_used": false
+  },
+  {
+    "operation_id": "op_108",
+    "selected_provider": "quickpay",
+    "attempts": [
+      {
+        "provider": "vipay",
+        "decision": "skipped",
+        "reason": "bank_not_in_list",
+        "details": "raiffeisen отсутствует в banks [sberbank, tinkoff, vtb]",
+        "stage": "hard_filter"
+      },
+      {
+        "provider": "payflow",
+        "decision": "skipped",
+        "reason": "bank_not_in_list",
+        "details": "raiffeisen отсутствует в banks [sberbank, alfa]",
+        "stage": "hard_filter"
+      },
+      {
+        "provider": "quickpay",
+        "decision": "selected",
+        "reason": "only_eligible_provider",
+        "details": "единственный провайдер, прошедший hard-constraints; доля по количеству 28.57% при цели 25.0% (перебирает 3.57 п.п.); доля по объёму 52.08% при цели 25.0% (перебирает 27.08 п.п.); conversion_24h 0.79, по истории 0.68 (смешано 0.3); обязательств по обороту нет; priority 3 в каскаде; диапазон 0–50000 → payflow; quickpay вне профиля; загрузка 15.66% по узкому месту «дневной оборот»",
+        "stage": "routed",
+        "score": 0.55,
+        "score_breakdown": {
+          "traffic_share": {
+            "score": 0.5,
+            "weight": 0.26,
+            "contribution": 0.13
+          },
+          "volume_share": {
+            "score": 0.5,
+            "weight": 0.16,
+            "contribution": 0.08
+          },
+          "conversion": {
+            "score": 0.5,
+            "weight": 0.18,
+            "contribution": 0.09
+          },
+          "turnover_commitment": {
+            "score": 0.5,
+            "weight": 0.14,
+            "contribution": 0.07
+          },
+          "cascade_priority": {
+            "score": 1.0,
+            "weight": 0.1,
+            "contribution": 0.1
+          },
+          "amount_band": {
+            "score": 0.25,
+            "weight": 0.09,
+            "contribution": 0.02
+          },
+          "load_balance": {
+            "score": 0.84,
+            "weight": 0.07,
+            "contribution": 0.06
+          }
+        }
+      }
+    ],
+    "simulated_result": "approved",
+    "latency_sec": 30,
+    "amount": 42000.0,
+    "bank": "raiffeisen",
+    "eligible_providers": [
+      "quickpay"
+    ],
+    "routing_profile": "balanced",
+    "fallback_used": false
+  },
+  {
+    "operation_id": "op_109",
+    "selected_provider": "vipay",
+    "attempts": [
+      {
+        "provider": "payflow",
+        "decision": "skipped",
+        "reason": "bank_not_in_list",
+        "details": "vtb отсутствует в banks [sberbank, alfa]",
+        "stage": "hard_filter"
+      },
+      {
+        "provider": "vipay",
+        "decision": "selected",
+        "reason": "best_composite_score",
+        "details": "балл 0.77 против 0.15 у quickpay; основной вклад — «Доля по количеству заявок». доля по количеству 37.5% при цели 40.0% (недобирает 2.5 п.п.); доля по объёму 27.4% при цели 45.0% (недобирает 17.6 п.п.); conversion_24h 0.87, по истории 0.78 (смешано 0.3); оборот 3292000 ₽ при потолке 5000000 ₽/сутки; priority 1 в каскаде; диапазон 0–50000 → payflow; vipay вне профиля; загрузка 65.84% по узкому месту «дневной оборот»",
+        "stage": "routed",
+        "score": 0.77,
+        "score_breakdown": {
+          "traffic_share": {
+            "score": 1.0,
+            "weight": 0.26,
+            "contribution": 0.26
+          },
+          "volume_share": {
+            "score": 1.0,
+            "weight": 0.16,
+            "contribution": 0.16
+          },
+          "conversion": {
+            "score": 1.0,
+            "weight": 0.18,
+            "contribution": 0.18
+          },
+          "turnover_commitment": {
+            "score": 0.17,
+            "weight": 0.14,
+            "contribution": 0.02
+          },
+          "cascade_priority": {
+            "score": 1.0,
+            "weight": 0.1,
+            "contribution": 0.1
+          },
+          "amount_band": {
+            "score": 0.25,
+            "weight": 0.09,
+            "contribution": 0.02
+          },
+          "load_balance": {
+            "score": 0.34,
+            "weight": 0.07,
+            "contribution": 0.02
+          }
+        }
+      },
+      {
+        "provider": "quickpay",
+        "decision": "skipped",
+        "reason": "lower_score",
+        "details": "балл 0.15 ниже, чем у выбранного провайдера",
+        "stage": "scoring",
+        "score": 0.15,
+        "score_breakdown": {
+          "traffic_share": {
+            "score": 0.0,
+            "weight": 0.26,
+            "contribution": 0.0
+          },
+          "volume_share": {
+            "score": 0.0,
+            "weight": 0.16,
+            "contribution": 0.0
+          },
+          "conversion": {
+            "score": 0.0,
+            "weight": 0.18,
+            "contribution": 0.0
+          },
+          "turnover_commitment": {
+            "score": 0.5,
+            "weight": 0.14,
+            "contribution": 0.07
+          },
+          "cascade_priority": {
+            "score": 0.0,
+            "weight": 0.1,
+            "contribution": 0.0
+          },
+          "amount_band": {
+            "score": 0.25,
+            "weight": 0.09,
+            "contribution": 0.02
+          },
+          "load_balance": {
+            "score": 0.84,
+            "weight": 0.07,
+            "contribution": 0.06
+          }
+        }
+      }
+    ],
+    "simulated_result": "rejected",
+    "latency_sec": 32,
+    "amount": 10000.0,
+    "bank": "vtb",
+    "eligible_providers": [
+      "vipay",
+      "quickpay"
+    ],
+    "routing_profile": "balanced",
+    "fallback_used": false
+  },
+  {
+    "operation_id": "op_110",
+    "selected_provider": "payflow",
+    "attempts": [
+      {
+        "provider": "vipay",
+        "decision": "skipped",
+        "reason": "bank_not_in_list",
+        "details": "alfa отсутствует в banks [sberbank, tinkoff, vtb]",
+        "stage": "hard_filter"
+      },
+      {
+        "provider": "payflow",
+        "decision": "selected",
+        "reason": "best_composite_score",
+        "details": "балл 0.86 против 0.15 у quickpay; основной вклад — «Доля по количеству заявок». доля по количеству 22.22% при цели 35.0% (недобирает 12.78 п.п.); доля по объёму 14.11% при цели 30.0% (недобирает 15.89 п.п.); conversion_24h 0.91, по истории 0.47 (смешано 0.3); обязательство 2000000 ₽/сутки выполнено; priority 2 в каскаде; диапазон 0–50000 → payflow; payflow профильный; загрузка 98.29% по узкому месту «дневной оборот»",
+        "stage": "routed",
+        "score": 0.86,
+        "score_breakdown": {
+          "traffic_share": {
+            "score": 1.0,
+            "weight": 0.26,
+            "contribution": 0.26
+          },
+          "volume_share": {
+            "score": 1.0,
+            "weight": 0.16,
+            "contribution": 0.16
+          },
+          "conversion": {
+            "score": 1.0,
+            "weight": 0.18,
+            "contribution": 0.18
+          },
+          "turnover_commitment": {
+            "score": 0.5,
+            "weight": 0.14,
+            "contribution": 0.07
+          },
+          "cascade_priority": {
+            "score": 1.0,
+            "weight": 0.1,
+            "contribution": 0.1
+          },
+          "amount_band": {
+            "score": 1.0,
+            "weight": 0.09,
+            "contribution": 0.09
+          },
+          "load_balance": {
+            "score": 0.02,
+            "weight": 0.07,
+            "contribution": 0.0
+          }
+        }
+      },
+      {
+        "provider": "quickpay",
+        "decision": "skipped",
+        "reason": "lower_score",
+        "details": "балл 0.15 ниже, чем у выбранного провайдера",
+        "stage": "scoring",
+        "score": 0.15,
+        "score_breakdown": {
+          "traffic_share": {
+            "score": 0.0,
+            "weight": 0.26,
+            "contribution": 0.0
+          },
+          "volume_share": {
+            "score": 0.0,
+            "weight": 0.16,
+            "contribution": 0.0
+          },
+          "conversion": {
+            "score": 0.0,
+            "weight": 0.18,
+            "contribution": 0.0
+          },
+          "turnover_commitment": {
+            "score": 0.5,
+            "weight": 0.14,
+            "contribution": 0.07
+          },
+          "cascade_priority": {
+            "score": 0.0,
+            "weight": 0.1,
+            "contribution": 0.0
+          },
+          "amount_band": {
+            "score": 0.25,
+            "weight": 0.09,
+            "contribution": 0.02
+          },
+          "load_balance": {
+            "score": 0.84,
+            "weight": 0.07,
+            "contribution": 0.06
+          }
+        }
+      }
+    ],
+    "simulated_result": "expired",
+    "latency_sec": 473,
+    "amount": 40000.0,
+    "bank": "alfa",
+    "eligible_providers": [
+      "payflow",
+      "quickpay"
+    ],
+    "routing_profile": "balanced",
+    "fallback_used": false
+  }
+]
