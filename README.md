@@ -15,9 +15,22 @@
 ## Быстрый старт
 
 ```bash
+rake test       # тесты, без внешних зависимостей
 rake route      # прогон публичной очереди из 10 заявок
 rake validate   # валидатор организаторов поверх результата
-rake test       # юнит-тесты
+rake all        # всё вместе: тесты, роутинг, валидатор, аналитика, дашборд
+```
+
+Дополнительно:
+
+```bash
+rake analyze              # разбор operations_history.csv: доли, конверсия, расхождения
+rake backtest             # переиграть 100 исторических операций через наш роутер
+rake compare              # сравнить профили роутинга на публичной очереди
+rake compare BACKTEST=1   # то же на истории — там политики расходятся
+rake demo                 # каскад и fallback в действии (профиль demo_failover)
+rake dashboard            # HTML-страница по отчёту → out/dashboard.html
+rake route PROFILE=cascade
 ```
 
 Или напрямую, без rake:
@@ -26,6 +39,7 @@ rake test       # юнит-тесты
 ruby bin/route --queue data/operations_queue_10.json \
                --providers data/providers.json \
                --config config/routing.yml \
+               --profile balanced \
                --decisions routing_decisions.json \
                --report routing_report.json
 ```
@@ -43,7 +57,22 @@ rake submit
 В корне репозитория появятся `routing_decisions_test.json` и
 `routing_report_test.json`. Полный регламент сдачи — в [TASKS-ARTEM.md](TASKS-ARTEM.md).
 
----
+## Что получается на публичной очереди
+
+```
+провайдер        заявок   факт %   цель % откл. п.п.
+vipay                 4     40.0     40.0        0.0
+payflow               3     30.0     35.0       -5.0
+quickpay              3     30.0     25.0        5.0
+```
+
+Валидатор организаторов: **29 проверок пройдено, 0 ошибок, 0 предупреждений**.
+
+Отклонение по `quickpay` не случайно: три из его заявок безальтернативны —
+`op_103` (150 000 ₽ при потолке 100 000 у vipay и 50 000 у payflow),
+`op_104` и `op_108` (Газпромбанк и Райффайзен отсутствуют в списках банков
+у vipay и payflow). Отчёт называет это как причину отклонения и предлагает
+конкретный параметр к изменению.
 
 ## Как устроено решение
 
@@ -130,13 +159,13 @@ rake submit
 ## Структура репозитория
 
 ```
-bin/            точки входа: route, analyze, validate
-config/         routing.yml — все правила, веса и пороги
+bin/            точки входа: route, analyze, backtest, compare, dashboard
+config/         routing.yml — все правила, веса, профили и пороги
 data/           исходные данные кейса
 docs/           архитектура, стратегии, журнал решений, ответы жюри
 lib/            ядро решения
 scripts/        validate_10.rb — валидатор организаторов, как есть
-test/           юнит-тесты (minitest, без внешних зависимостей)
+test/           тесты (minitest, без внешних зависимостей)
 ```
 
 Внутри `lib/smart_routing/`:
@@ -147,12 +176,18 @@ provider_pool.rb     состояние провайдеров, модельно
 rate_limiter.rb      скользящее окно интенсивности
 router.rb            оркестрация: фильтр → скоринг → каскад → fallback
 simulator.rb         детерминированная симуляция исхода и задержки
-constraints/         жёсткие ограничения, по классу на правило
-strategies/          мягкие цели, по классу на стратегию
+loaders.rb           чтение входных файлов с внятными ошибками
+cli.rb               разбор аргументов и сводка в консоль
+constraints/         9 жёстких ограничений, по классу на правило
+strategies/          7 мягких целей, по классу на стратегию
 scoring/             композитный скоринг и разрешение ничьи
-analytics/           калибровка по истории, отчёт, рекомендации
+analytics/           калибровка по истории, отчёт, backtest, сравнение, дашборд
 models/              operation, provider, attempt, decision
 ```
+
+Документация: [архитектура](docs/ARCHITECTURE.md) ·
+[стратегии](docs/STRATEGIES.md) · [журнал решений](docs/DECISIONS.md) ·
+[вопросы жюри](docs/QA-ANSWERS.md)
 
 ## Расширяемость
 

@@ -1,0 +1,78 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Разбор operations_history.csv: фактические доли, конверсия и расхождения
+# со снимком провайдеров. Отсюда берутся значения для калибровки конфига.
+
+require 'optparse'
+require_relative '../lib/smart_routing'
+
+options = { history: 'data/operations_history.csv', providers: 'data/providers.json', json: nil }
+OptionParser.new do |opts|
+  opts.banner = 'Использование: ruby bin/analyze [опции]'
+  opts.on('-H', '--history PATH', 'история операций (CSV)') { |v| options[:history] = v }
+  opts.on('-p', '--providers PATH', 'снимок провайдеров (JSON)') { |v| options[:providers] = v }
+  opts.on('--json PATH', 'дополнительно записать результат в JSON') { |v| options[:json] = v }
+  opts.on('-h', '--help') { puts opts; exit 0 }
+end.parse!
+
+begin
+  config = SmartRouting::Config.load
+  calibrator = SmartRouting::Analytics::HistoryCalibrator.load(options[:history])
+  providers = SmartRouting::Loaders.providers(options[:providers], config)
+
+  if calibrator.empty?
+    warn 'История пуста: нечего анализировать'
+    exit 1
+  end
+
+  puts "Операций в истории: #{calibrator.total_count}, объём #{calibrator.total_amount.round} ₽"
+  puts
+  puts format('%-14s %6s %8s %9s %10s %10s %8s', 'провайдер', 'заявок', 'доля %', 'объём %',
+              'конверсия', 'цель %', 'задержка')
+  calibrator.stats_by_provider.each do |name, stat|
+    provider = providers.find { |p| p.name == name }
+    puts format('%-14s %6d %8.1f %9.1f %10.2f %10s %8.1f',
+                name, stat['count'], stat['count_share_pct'], stat['volume_share_pct'],
+                stat['conversion'], provider ? provider.traffic_percentage : '—', stat['avg_latency_sec'])
+  end
+
+  puts
+  drift = calibrator.conversion_drift(providers)
+  if drift.empty?
+    puts 'Заявленная конверсия совпадает с фактической'
+  else
+    puts 'Расхождение заявленной и фактической конверсии:'
+    drift.each do |item|
+      puts "  • #{item['provider']}: в снимке #{item['declared']}, по истории #{item['observed']} " \
+           "(#{item['drift_pp']} п.п.)"
+    end
+  end
+
+  puts
+  puts 'Фактические доли против целевых:'
+  providers.reject(&:fallback_role?).each do |provider|
+    stat = calibrator.stats_by_provider[provider.name]
+    next if stat.nil?
+
+    delta = (stat['count_share_pct'] - provider.traffic_percentage).round(1)
+    verdict = delta.negative? ? 'недобор' : 'перебор'
+    puts "  • #{provider.name}: факт #{stat['count_share_pct']}%, цель #{provider.traffic_percentage}% " \
+         "(#{verdict} #{delta.abs} п.п.)"
+  end
+
+  if options[:json]
+    payload = {
+      'operations' => calibrator.total_count,
+      'total_amount' => calibrator.total_amount,
+      'by_provider' => calibrator.stats_by_provider,
+      'conversion_drift' => calibrator.conversion_drift(providers)
+    }
+    SmartRouting::Loaders.write_json(options[:json], payload)
+    puts
+    puts "Записано: #{options[:json]}"
+  end
+rescue SmartRouting::Error => e
+  warn "Ошибка: #{e.message}"
+  exit 1
+end

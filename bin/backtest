@@ -1,0 +1,61 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Переигрывание истории через наш роутер: сравнение фактического
+# распределения с тем, что дал бы текущий профиль.
+
+require 'optparse'
+require_relative '../lib/smart_routing'
+
+options = {
+  history: 'data/operations_history.csv',
+  providers: 'data/providers.json',
+  profile: nil,
+  json: nil,
+  reset_daily: true
+}
+OptionParser.new do |opts|
+  opts.banner = 'Использование: ruby bin/backtest [опции]'
+  opts.on('-H', '--history PATH') { |v| options[:history] = v }
+  opts.on('-p', '--providers PATH') { |v| options[:providers] = v }
+  opts.on('-P', '--profile NAME', 'профиль роутинга') { |v| options[:profile] = v }
+  opts.on('--json PATH', 'записать результат в JSON') { |v| options[:json] = v }
+  opts.on('--keep-daily', 'не обнулять дневные счётчики из снимка') { options[:reset_daily] = false }
+  opts.on('-h', '--help') { puts opts; exit 0 }
+end.parse!
+
+begin
+  config = SmartRouting::Config.load(nil, profile: options[:profile])
+  result = SmartRouting::Analytics::Backtest.new(
+    config: config, providers_path: options[:providers], history_path: options[:history],
+    reset_daily: options[:reset_daily]
+  ).run
+
+  puts "Профиль: #{config.profile_name}"
+  puts "Операций в истории: #{result['operations']}, из них смаршрутизировано: #{result['routed_by_us']}"
+  puts
+  puts format('%-14s %8s %12s %10s', 'провайдер', 'цель %', 'было %', 'стало %')
+  result['distribution'].each do |name, stat|
+    puts format('%-14s %8s %12.1f %10.1f',
+                name, stat['target_pct'] || '—', stat['historical_pct'], stat['ours_pct'])
+  end
+
+  errors = result['share_error_pp']
+  puts
+  puts "Суммарное отклонение от целевых долей: было #{errors['historical']} п.п., " \
+       "стало #{errors['ours']} п.п."
+
+  conv = result['expected_conversion']
+  puts "Ожидаемая конверсия по наблюдаемым данным: было #{conv['historical']}, стало #{conv['ours']}"
+  puts "Операций, ушедших недопустимому провайдеру: #{result['misrouted_by_hard_constraints']}"
+  puts
+  puts result['note']
+
+  if options[:json]
+    SmartRouting::Loaders.write_json(options[:json], result)
+    puts "Записано: #{options[:json]}"
+  end
+rescue SmartRouting::Error => e
+  warn "Ошибка: #{e.message}"
+  exit 1
+end

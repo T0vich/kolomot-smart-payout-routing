@@ -1,0 +1,84 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Сравнение профилей роутинга на одной и той же очереди.
+
+require 'optparse'
+require_relative '../lib/smart_routing'
+
+options = {
+  queue: 'data/operations_queue_10.json',
+  providers: 'data/providers.json',
+  history: 'data/operations_history.csv',
+  json: nil,
+  include_demo: false,
+  backtest: false
+}
+OptionParser.new do |opts|
+  opts.banner = 'Использование: ruby bin/compare [опции]'
+  opts.on('-q', '--queue PATH') { |v| options[:queue] = v }
+  opts.on('-p', '--providers PATH') { |v| options[:providers] = v }
+  opts.on('-H', '--history PATH') { |v| options[:history] = v }
+  opts.on('--json PATH', 'записать результат в JSON') { |v| options[:json] = v }
+  opts.on('--include-demo', 'включить демонстрационные профили') { options[:include_demo] = true }
+  opts.on('--backtest', 'сравнить профили на исторических операциях') { options[:backtest] = true }
+  opts.on('-h', '--help') { puts opts; exit 0 }
+end.parse!
+
+begin
+  comparison = SmartRouting::Analytics::ProfileComparison.new(
+    queue_path: options[:queue], providers_path: options[:providers],
+    history_path: options[:history], include_demo: options[:include_demo]
+  )
+
+  if options[:backtest]
+    puts 'Сравнение профилей на 100 исторических операциях:'
+    puts
+    puts format('%-18s %12s %14s %12s', 'профиль', 'откл. п.п.', 'ожид. конв.', 'недопустимых')
+    comparison.profile_names.each do |name|
+      config = SmartRouting::Config.load(nil, profile: name)
+      run = SmartRouting::Analytics::Backtest.new(
+        config: config, providers_path: options[:providers], history_path: options[:history]
+      ).run
+      puts format('%-18s %12.1f %14s %12d',
+                  name, run['share_error_pp']['ours'], run['expected_conversion']['ours'],
+                  run['misrouted_by_hard_constraints'])
+    end
+    exit 0
+  end
+
+  result = comparison.run
+
+  puts format('%-18s %10s %14s %10s', 'профиль', 'откл. п.п.', 'ожид. конв.', 'fallback')
+  result['profiles'].each do |name, run|
+    puts format('%-18s %10.1f %14s %10d',
+                name, run['share_error_pp'], run['expected_conversion'] || '—', run['fallback_used'])
+  end
+
+  puts
+  puts result['verdict']
+  freedom = result['freedom_of_choice']
+  puts
+  puts "Заявок в очереди: #{freedom['total_operations']}"
+  puts "Из них с единственным допустимым провайдером: #{freedom['single_option']}"
+  puts "С реальным выбором: #{freedom['with_real_choice']}"
+  puts "Профили разошлись на заявках: #{freedom['divergent_operations']}"
+
+  divergent = result['agreement']['divergent']
+  unless divergent.empty?
+    puts
+    puts 'Где профили расходятся:'
+    divergent.each do |op_id, chosen|
+      puts "  #{op_id}: " + chosen.map { |profile, provider| "#{profile}→#{provider}" }.join(', ')
+    end
+  end
+
+  if options[:json]
+    SmartRouting::Loaders.write_json(options[:json], result)
+    puts
+    puts "Записано: #{options[:json]}"
+  end
+rescue SmartRouting::Error => e
+  warn "Ошибка: #{e.message}"
+  exit 1
+end
