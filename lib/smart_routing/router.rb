@@ -36,13 +36,12 @@ module SmartRouting
       eligible = filter_eligible(operation, attempts)
       ranked = scorer.rank(eligible, operation, pool)
 
-      selected, card, attempted = walk_cascade(operation, ranked, attempts)
-      selected, card = fall_back(operation, attempts) if selected.nil?
+      outcome = walk_cascade(operation, ranked, attempts)
 
-      raise NoProviderError, "#{operation.id}: не осталось ни одного провайдера, включая self-provider" if selected.nil?
+      raise NoProviderError, "#{operation.id}: не осталось ни одного провайдера, включая self-provider" if outcome.nil?
 
-      record_not_reached(ranked, attempted, selected, attempts)
-      finalize(operation, selected, card, ranked, attempts, eligible)
+      record_not_reached(ranked, outcome[:attempted], outcome[:provider], attempts)
+      finalize(operation, outcome, ranked, attempts, eligible)
     end
 
     private
@@ -62,45 +61,93 @@ module SmartRouting
 
     # Шаг 4: каскад. Кандидаты обходятся в порядке убывания скора,
     # но не больше max_attempts попыток подряд.
+    #
+    # Поводом идти дальше всегда служит отказ провайдера принять заявку в работу.
+    # Неуспешная выплата у принявшего провайдера — терминальный исход, и маршрут
+    # она не меняет; при retry_on_terminal_failure: true заявка переезжает
+    # к следующему кандидату и в этом случае тоже.
+    #
+    # @return [Hash, nil] provider, card, result, latency_sec, attempted, fallback
     def walk_cascade(operation, ranked, attempts)
       attempted = []
+      queue = ranked.take(config.max_attempts)
 
-      ranked.take(config.max_attempts).each do |provider, card|
+      until queue.empty?
+        provider, card = queue.shift
         attempted << provider.name
-        case simulator.handoff(operation, provider)
-        when :accepted
-          return [provider, card, attempted]
-        when :timeout
-          attempts << Models::Attempt.skipped(
-            provider.name, 'provider_timeout',
-            'провайдер не ответил в отведённое время, переходим к следующему кандидату',
-            score: card.total, stage: 'cascade'
-          )
-        else
-          attempts << Models::Attempt.skipped(
-            provider.name, 'provider_declined',
-            'провайдер отказался принять заявку, переходим к следующему кандидату',
-            score: card.total, stage: 'cascade'
-          )
+
+        next unless accepted?(operation, provider, card, attempts)
+
+        # Объяснение снимается до обработки: оно описывает состояние пула
+        # в момент решения, а не после того, как заявка уже занята провайдером.
+        explanation = explanations(operation, provider)
+        result, latency = process(operation, provider)
+        unless retry_after_failure?(result, queue)
+          return { provider: provider, card: card, result: result, latency: latency,
+                   attempted: attempted, fallback: false, explanation: explanation }
         end
+
+        attempts << Models::Attempt.skipped(
+          provider.name, 'terminal_failure',
+          "выплата не прошла (#{result}, #{latency} с), " \
+          'перемаршрутизируем на следующего кандидата',
+          score: card.total, stage: 'cascade'
+        )
       end
 
-      [nil, nil, attempted]
+      fall_back(operation, attempts, attempted)
+    end
+
+    # Принял ли провайдер заявку в работу; отказ и таймаут сразу пишутся в attempts.
+    def accepted?(operation, provider, card, attempts)
+      case simulator.handoff(operation, provider)
+      when :accepted
+        true
+      when :timeout
+        attempts << Models::Attempt.skipped(
+          provider.name, 'provider_timeout',
+          'провайдер не ответил в отведённое время, переходим к следующему кандидату',
+          score: card.total, stage: 'cascade'
+        )
+        false
+      else
+        attempts << Models::Attempt.skipped(
+          provider.name, 'provider_declined',
+          'провайдер отказался принять заявку, переходим к следующему кандидату',
+          score: card.total, stage: 'cascade'
+        )
+        false
+      end
+    end
+
+    def retry_after_failure?(result, queue)
+      config.retry_on_terminal_failure? && result != 'approved' && !queue.empty?
+    end
+
+    # Симуляция исхода и обновление состояния пула: слот и лимит заняты
+    # тем провайдером, который заявку действительно обработал.
+    def process(operation, provider)
+      result, latency = simulator.outcome(operation, provider, conversion: conversion_for(provider))
+      pool.occupy(provider, operation, latency, result)
+      [result, latency]
     end
 
     # Шаг 5: self-provider. Он вне обычного пула и берётся только когда
     # внешних вариантов не осталось — но hard-constraints проверяются и для него.
-    def fall_back(operation, attempts)
+    def fall_back(operation, attempts, attempted)
       provider = pool.fallback
-      return [nil, nil] if provider.nil?
+      return nil if provider.nil?
 
       verdict = constraints.check(provider, operation, pool)
       if verdict
         attempts << Models::Attempt.skipped(provider.name, verdict.reason, verdict.details, stage: 'fallback')
-        return [nil, nil]
+        return nil
       end
 
-      [provider, nil]
+      explanation = explanations(operation, provider)
+      result, latency = process(operation, provider)
+      { provider: provider, card: nil, result: result, latency: latency,
+        attempted: attempted, fallback: true, explanation: explanation }
     end
 
     # Кандидаты, до которых очередь не дошла: они были допустимы,
@@ -118,33 +165,33 @@ module SmartRouting
       end
     end
 
-    # Шаг 6: фиксируем выбор, симулируем исход, обновляем состояние пула.
-    def finalize(operation, selected, card, ranked, attempts, eligible)
-      fallback_used = card.nil?
-      reason, details = selection_reason(operation, selected, card, ranked, eligible, fallback_used)
+    # Шаг 6: фиксируем выбор и собираем решение. Исход уже получен в каскаде:
+    # состояние пула обновляется на каждой попытке, которая дошла до обработки.
+    def finalize(operation, outcome, ranked, attempts, eligible)
+      selected = outcome[:provider]
+      card = outcome[:card]
+      fallback_used = outcome[:fallback]
+      reason, details = selection_reason(selected, card, ranked, eligible, fallback_used,
+                                         outcome[:explanation])
 
       attempts << Models::Attempt.selected(
         selected.name, reason, details,
         score: card&.total, breakdown: card&.to_h
       )
 
-      conversion = conversion_for(selected)
-      result, latency = simulator.outcome(operation, selected, conversion: conversion)
-      pool.occupy(selected, operation, latency, result)
-
       Models::Decision.new(
         operation: operation,
         selected_provider: selected.name,
         attempts: order_attempts(attempts),
-        simulated_result: result,
-        latency_sec: latency,
+        simulated_result: outcome[:result],
+        latency_sec: outcome[:latency],
         eligible: eligible.map(&:name),
         profile: config.profile_name,
         fallback_used: fallback_used
       )
     end
 
-    def selection_reason(operation, selected, card, ranked, eligible, fallback_used)
+    def selection_reason(selected, card, ranked, eligible, fallback_used, explanation)
       if fallback_used
         return ['fallback_self_provider',
                 'внешних допустимых провайдеров не осталось, заявка ушла на self-provider']
@@ -152,12 +199,12 @@ module SmartRouting
 
       if eligible.size == 1
         return ['only_eligible_provider',
-                "единственный провайдер, прошедший hard-constraints; #{explanations(operation, selected)}"]
+                "единственный провайдер, прошедший hard-constraints; #{explanation}"]
       end
 
       runner_up = ranked.find { |provider, _| provider.name != selected.name }&.last
       reason = ranked.first&.first&.name == selected.name ? 'best_composite_score' : 'best_available_after_retry'
-      [reason, "#{scorer.explain_win(card, runner_up)}. #{explanations(operation, selected)}"]
+      [reason, "#{scorer.explain_win(card, runner_up)}. #{explanation}"]
     end
 
     # Пояснения каждой стратегии по выбранному провайдеру — человеческим языком.

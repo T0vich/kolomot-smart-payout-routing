@@ -5,18 +5,20 @@ require_relative 'test_helper'
 # Симулятор с предсказуемым поведением: нужен, чтобы проверить каскад и
 # fallback, не полагаясь на псевдослучайность.
 class ScriptedSimulator
-  def initialize(declines: [], result: 'approved', latency: 30)
+  # results: исход по конкретному провайдеру, result: исход по умолчанию.
+  def initialize(declines: [], result: 'approved', latency: 30, results: {})
     @declines = declines
     @result = result
     @latency = latency
+    @results = results
   end
 
   def handoff(_operation, provider)
     @declines.include?(provider.name) ? :declined : :accepted
   end
 
-  def outcome(_operation, _provider, conversion: nil)
-    [@result, @latency]
+  def outcome(_operation, provider, conversion: nil)
+    [@results.fetch(provider.name, @result), @latency]
   end
 end
 
@@ -70,6 +72,58 @@ class RouterTest < Minitest::Test
     assert_equal 'beta', decision.selected_provider
     declined = decision.attempts.find { |a| a.provider == 'alpha' }
     assert_equal 'provider_declined', declined.reason
+  end
+
+  # По умолчанию неуспешная выплата — терминальный исход: провайдер принял
+  # заявку и обработал её, маршрут она уже не меняет.
+  def test_terminal_failure_does_not_reroute_by_default
+    router, = build_router(providers, build_config,
+                           simulator: ScriptedSimulator.new(results: { 'alpha' => 'rejected' }))
+    decision = router.route(build_operation)
+
+    assert_equal 'alpha', decision.selected_provider
+    assert_equal 'rejected', decision.simulated_result
+    refute decision.fallback_used
+    assert_nil decision.attempts.find { |a| a.reason == 'terminal_failure' }
+  end
+
+  # Противоположная трактовка ТЗ включается флагом конфига, без правки кода.
+  def test_terminal_failure_reroutes_when_enabled
+    config = build_config('retry_on_terminal_failure' => true)
+    router, = build_router(providers, config,
+                           simulator: ScriptedSimulator.new(results: { 'alpha' => 'rejected' }))
+    decision = router.route(build_operation)
+
+    assert_equal 'beta', decision.selected_provider
+    assert_equal 'approved', decision.simulated_result
+    failed = decision.attempts.find { |a| a.provider == 'alpha' }
+    assert_equal 'terminal_failure', failed.reason
+    assert_includes failed.details, 'rejected'
+  end
+
+  # Перемаршрутизация идёт только между внешними кандидатами: уход на
+  # self-provider остаётся зарезервированным за отказом в приёме заявки.
+  def test_terminal_failure_retry_keeps_last_candidate
+    config = build_config('retry_on_terminal_failure' => true)
+    router, = build_router(providers, config,
+                           simulator: ScriptedSimulator.new(result: 'rejected'))
+    decision = router.route(build_operation)
+
+    assert_equal 'beta', decision.selected_provider
+    assert_equal 'rejected', decision.simulated_result
+    refute decision.fallback_used
+  end
+
+  # Провайдер, который заявку обработал, всё равно занял слот и лимит —
+  # даже если выплата не прошла и заявка уехала к следующему.
+  def test_terminal_failure_retry_still_updates_state
+    config = build_config('retry_on_terminal_failure' => true)
+    router, pool = build_router(providers, config,
+                                simulator: ScriptedSimulator.new(results: { 'alpha' => 'rejected' }))
+    router.route(build_operation('amount' => 10_000))
+
+    alpha = pool.providers.find { |p| p.name == 'alpha' }
+    assert_operator alpha.in_progress_count, :>, 0, 'провайдер обработал заявку, но слот не занят'
   end
 
   def test_falls_back_to_self_provider_when_all_decline

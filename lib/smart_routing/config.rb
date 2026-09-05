@@ -75,6 +75,13 @@ module SmartRouting
       (profile['tie_break_epsilon'] || 0.02).to_f
     end
 
+    # Считать ли неуспешную выплату поводом идти дальше по каскаду.
+    # По умолчанию выключено: провайдер принял и обработал заявку — это
+    # терминальный исход, маршрут он уже не меняет. См. docs/QA-ANSWERS.md, п. 2.
+    def retry_on_terminal_failure?
+      profile['retry_on_terminal_failure'] == true
+    end
+
     # Явный приоритет политик: чем раньше в списке, тем весомее при ничье.
     def conflict_order
       order = Array(profile['conflict_order'])
