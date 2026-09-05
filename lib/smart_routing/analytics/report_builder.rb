@@ -34,6 +34,7 @@ module SmartRouting
           'limits_pressure' => limits_pressure,
           'cascade' => cascade_stats,
           'deviations' => deviations,
+          'deviations_note' => deviations_note,
           'history_calibration' => history_calibration,
           'recommendations' => recommendations.map { |item| item['text'] },
           'recommendations_detailed' => recommendations
@@ -177,6 +178,22 @@ module SmartRouting
             'cause' => deviation_cause(name, stat)
           }
         end
+      end
+
+      # Пустой массив deviations сам по себе ничего не сообщает: непонятно,
+      # отклонений нет или их некому было посчитать. Поясняем оба случая.
+      def deviations_note
+        return nil if @decisions.empty? || distribution.empty?
+
+        return "Существенным считается отклонение фактической доли от целевой " \
+               "на #{SHARE_DEVIATION_ALERT_PP} п.п. и более." if deviations.any?
+
+        name, stat = distribution.max_by { |_, s| s['deviation_pp'].abs }
+        step = Support::Numeric.round2(100.0 / @decisions.size)
+        "Существенных отклонений нет: наибольшее — #{stat['deviation_pp'].abs} п.п. " \
+          "(#{name}) при пороге #{SHARE_DEVIATION_ALERT_PP} п.п. " \
+          "В очереди #{@decisions.size} заявок, поэтому фактическая доля кратна #{step} п.п.; " \
+          "отклонения меньше этого шага вызваны дискретностью очереди, а не политикой роутинга."
       end
 
       def deviation_cause(name, stat)

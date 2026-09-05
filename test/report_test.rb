@@ -89,6 +89,31 @@ class ReportTest < Minitest::Test
     end
   end
 
+  # Пустой deviations не должен читаться как «причины не считаются»:
+  # отчёт обязан сказать, что существенных отклонений нет и почему.
+  def test_deviations_note_explains_empty_list
+    note = @report['deviations_note'].to_s
+    refute_empty note, 'нет пояснения к deviations'
+    if @report['deviations'].empty?
+      assert_includes note, 'Существенных отклонений нет'
+      worst = @report['distribution'].values.map { |s| s['deviation_pp'].abs }.max
+      assert_includes note, worst.to_s
+    else
+      assert_includes note, SmartRouting::Analytics::ReportBuilder::SHARE_DEVIATION_ALERT_PP.to_s
+    end
+  end
+
+  def test_deviations_note_is_absent_on_empty_queue
+    config = SmartRouting::Config.load(nil, profile: 'balanced')
+    providers = SmartRouting::Loaders.providers(File.join(TestHelper::DATA_DIR, 'providers.json'), config)
+    pool = SmartRouting::ProviderPool.new(providers, config: config)
+    report = SmartRouting::Analytics::ReportBuilder.new(
+      decisions: [], pool: pool, config: config, period: '2026-07-30'
+    ).build
+
+    assert_nil report['deviations_note']
+  end
+
   def test_history_calibration_is_included
     calibration = @report['history_calibration']
     refute_nil calibration
