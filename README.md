@@ -222,8 +222,8 @@ models/              operation, provider, attempt, decision
 ```
 
 Документация: [архитектура](docs/ARCHITECTURE.md) ·
-[стратегии](docs/STRATEGIES.md) · [журнал решений](docs/DECISIONS.md) ·
-[вопросы жюри](docs/QA-ANSWERS.md)
+[стратегии распределения](docs/STRATEGIES.md) ·
+[технический отчёт](docs/kolomot-report.pdf)
 
 ## Расширяемость
 
