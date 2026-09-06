@@ -12,6 +12,7 @@ module SmartRouting
     class ReportBuilder
       SHARE_DEVIATION_ALERT_PP = 10.0
       UTILIZATION_ALERT = 0.85
+      FALLBACK_SHARE_ALERT_PCT = 20.0
 
       def initialize(decisions:, pool:, config:, calibrator: nil, period: nil)
         @decisions = decisions
@@ -221,6 +222,7 @@ module SmartRouting
       def recommendations
         @recommendations ||= begin
           list = []
+          list.concat(capacity_recommendations)
           list.concat(share_recommendations)
           list.concat(utilization_recommendations)
           list.concat(turnover_recommendations)
@@ -230,6 +232,36 @@ module SmartRouting
           list << ok_recommendation if list.empty?
           list
         end
+      end
+
+      # Когда внешняя ёмкость кончилась, отчёт показывает цели 40/35/25 против
+      # факта вроде 5/1/7 — и это читается как провал роутинга. На самом деле это
+      # потолок дневных лимитов: объясняем прямо, называя заявку, на которой
+      # внешние провайдеры закончились.
+      def capacity_recommendations
+        fallback_index = @decisions.index(&:fallback_used)
+        return [] if fallback_index.nil?
+
+        count = @decisions.count(&:fallback_used)
+        share = Support::Numeric.round2(count * 100.0 / @decisions.size)
+        return [] if share < FALLBACK_SHARE_ALERT_PCT
+
+        first = @decisions[fallback_index]
+        capacity = external_daily_capacity
+        [{
+          'rule' => 'external_capacity_exhausted',
+          'parameter' => 'daily_amount_limit',
+          'current' => capacity,
+          'text' => "внешняя ёмкость исчерпана на #{fallback_index + 1}-й заявке " \
+                    "(#{first.operation.id}): #{count} заявок из #{@decisions.size} (#{share}%) " \
+                    'ушли на self-provider. Отклонение от целевых долей здесь — следствие ' \
+                    "суммарного дневного лимита внешних провайдеров (#{format('%.0f', capacity)} ₽), " \
+                    'а не выбора роутера: поднимать нужно лимиты, а не веса стратегий'
+        }]
+      end
+
+      def external_daily_capacity
+        @pool.providers.reject(&:fallback_role?).sum { |p| p.raw['daily_amount_limit'].to_f }
       end
 
       def share_recommendations

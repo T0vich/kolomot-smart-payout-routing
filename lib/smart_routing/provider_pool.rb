@@ -54,7 +54,10 @@ module SmartRouting
       provider.in_progress_count += 1
       provider.in_progress_amount += operation.amount
       provider.daily_reserved_amount += operation.amount
-      provider.available_requisites -= 1 if provider.available_requisites.positive?
+      # Реквизит возвращаем в settle только если его действительно заняли,
+      # иначе счётчик уползает выше исходного значения.
+      requisite_taken = provider.available_requisites.positive?
+      provider.available_requisites -= 1 if requisite_taken
       provider.routed_count += 1
       provider.routed_amount += operation.amount
 
@@ -64,7 +67,8 @@ module SmartRouting
 
       finish_at = (operation.created_at || @now)
       finish_at = finish_at.nil? ? nil : finish_at + latency_sec
-      item = { provider: provider, amount: operation.amount, result: result, finish_at: finish_at }
+      item = { provider: provider, amount: operation.amount, result: result, finish_at: finish_at,
+               requisite_taken: requisite_taken }
       finish_at.nil? ? settle(item) : @in_flight << item
     end
 
@@ -134,7 +138,7 @@ module SmartRouting
       provider.in_progress_amount = 0.0 if provider.in_progress_amount.negative?
       provider.daily_reserved_amount -= item[:amount]
       provider.daily_reserved_amount = 0.0 if provider.daily_reserved_amount.negative?
-      provider.available_requisites += 1
+      provider.available_requisites += 1 if item.fetch(:requisite_taken, true)
 
       if item[:result] == 'approved'
         provider.daily_approved_amount += item[:amount]
