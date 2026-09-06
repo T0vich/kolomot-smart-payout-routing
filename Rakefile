@@ -22,15 +22,21 @@ task :route do
   sh_ruby(*args)
 end
 
-desc 'Проверить результат валидатором организаторов (FILE=routing_decisions.json)'
+desc 'Проверить результат валидатором организаторов (FILE=..., QUEUE=...)'
 task :validate do
   file = ENV['FILE'] || 'routing_decisions.json'
   abort "Файл не найден: #{file}. Сначала выполните rake route" unless File.exist?(file)
+
+  # По умолчанию валидатор сверяется с публичной очередью из 10 заявок.
+  # На стопкоде очередь другая — передаём её через QUEUE=.
+  ENV['QUEUE_FILE'] = ENV['QUEUE'] if ENV['QUEUE']
   sh_ruby 'scripts/validate_10.rb', file
 end
 
 desc 'Сформировать сдаваемые routing_decisions_test.json и routing_report_test.json'
 task :submit do
+  require 'json'
+
   queue = ENV['QUEUE'] || 'data/operations_queue_test.json'
   unless File.exist?(queue)
     abort <<~MSG
@@ -42,17 +48,56 @@ task :submit do
     MSG
   end
 
-  sh_ruby 'bin/route',
-          '--queue', queue,
-          '--decisions', 'routing_decisions_test.json',
-          '--report', 'routing_report_test.json'
+  decisions_file = 'routing_decisions_test.json'
+  report_file = 'routing_report_test.json'
+
+  begin
+    sh_ruby 'bin/route',
+            '--queue', queue,
+            '--decisions', decisions_file,
+            '--report', report_file
+  rescue RuntimeError
+    abort "\nРоутер не отработал — смотрите сообщение об ошибке выше. Файлы не сформированы."
+  end
+
+  # --- Самопроверка: то, что раньше делалось руками по чек-листу ---
+  problems = []
+
+  ops = JSON.parse(File.read(queue))
+  problems << "очередь #{queue} пустая — это почти наверняка не тот файл" if ops.empty?
+  decisions = JSON.parse(File.read(decisions_file))
+
+  problems << "решений #{decisions.size}, а заявок в очереди #{ops.size}" if decisions.size != ops.size
+
+  queue_ids = ops.map { |o| o['operation_id'] }
+  decision_ids = decisions.map { |d| d['operation_id'] }
+  missing = queue_ids - decision_ids
+  extra = decision_ids - queue_ids
+  problems << "нет решений для: #{missing.join(', ')}" if missing.any?
+  problems << "лишние operation_id: #{extra.join(', ')}" if extra.any?
+
+  [decisions_file, report_file].each do |f|
+    problems << "#{f} не в корне репозитория" unless File.exist?(File.join(Dir.pwd, f))
+    problems << "#{f} пустой" if File.exist?(f) && File.size(f).zero?
+  end
 
   puts
-  puts 'Проверьте перед коммитом:'
-  puts '  1) оба файла лежат в корне репозитория;'
-  puts '  2) количество решений совпадает с количеством заявок в выданной очереди;'
-  puts '  3) rake validate FILE=routing_decisions_test.json проходит без ошибок;'
-  puts '  4) файлы попали в ветку main.'
+  puts '=== Валидатор организаторов ==='
+  ENV['QUEUE_FILE'] = queue
+  problems << 'валидатор организаторов вернул ошибки' unless system(RUBY_BIN, 'scripts/validate_10.rb', decisions_file)
+
+  puts
+  if problems.empty?
+    puts '=== ГОТОВО К СДАЧЕ ==='
+    puts "  заявок в очереди: #{ops.size}, решений: #{decisions.size}"
+    puts "  #{decisions_file}, #{report_file} — в корне, валидатор чист"
+    puts
+    puts 'Осталось: git add + commit + push в main, затем глазами проверить оба файла на GitHub.'
+  else
+    puts '=== НЕ СДАВАТЬ, ЕСТЬ ПРОБЛЕМЫ ==='
+    problems.each { |p| puts "  ✗ #{p}" }
+    abort
+  end
 end
 
 desc 'Анализ истории операций'

@@ -5,6 +5,10 @@
 #
 # Использование:
 #   ruby scripts/validate_10.rb path/to/routing_decisions.json
+#   QUEUE_FILE=data/operations_queue_test.json ruby scripts/validate_10.rb routing_decisions_test.json
+#
+# QUEUE_FILE — очередь, относительно которой проверяется покрытие. По умолчанию
+# публичная operations_queue_10.json из data/ (поведение организаторов не изменено).
 #
 # Проверяет:
 #   1. Структуру JSON
@@ -16,10 +20,19 @@
 require 'json'
 
 DATA_DIR = File.expand_path('../data', __dir__)
-QUEUE_FILENAME = 'operations_queue_10.json'
+QUEUE_FILENAME = ENV['QUEUE_FILE'] || 'operations_queue_10.json'
+
+def resolve(filename)
+  return filename if File.exist?(filename)
+
+  File.join(DATA_DIR, filename)
+end
 
 def load_json(filename)
-  JSON.parse(File.read(File.join(DATA_DIR, filename)))
+  path = resolve(filename)
+  abort "❌ Файл не найден: #{path}" unless File.exist?(path)
+
+  JSON.parse(File.read(path))
 end
 
 def eligible_providers(operation, providers)
