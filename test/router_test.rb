@@ -36,6 +36,53 @@ class RouterTest < Minitest::Test
     ]
   end
 
+  # --- Гарантия «прогон нельзя уронить одной заявкой» ---
+
+  # Реквизиты self-provider кончились: раньше это был NoProviderError
+  # и полное отсутствие файла решений.
+  def test_exhausted_self_provider_still_produces_decision
+    pool = providers
+    pool[2] = build_provider({ 'payment_system' => 'spacepayments', 'traffic_percentage' => 0, 'priority' => 99,
+                               'available_requisites' => 0, 'limit_amount_min' => nil, 'limit_amount_max' => nil,
+                               'daily_amount_limit' => nil, 'in_progress_count_limit' => nil,
+                               'in_progress_amount_limit' => nil },
+                             { 'role' => 'fallback' })
+    router, = build_router(pool, build_config)
+
+    decision = router.route(build_operation('bank' => 'нет-такого-банка', 'amount' => 999_999_999))
+
+    assert_equal 'spacepayments', decision.selected_provider
+    assert decision.fallback_used
+    selected = decision.attempts.find { |a| a.decision == 'selected' }
+    assert_equal 'fallback_self_provider_over_capacity', selected.reason
+    assert decision.attempts.any? { |a| a.reason == 'no_available_requisites' }
+  end
+
+  # Битая заявка тоже получает решение, а не обрушивает очередь.
+  def test_defective_operation_gets_salvage_decision
+    router, = build_router(providers, build_config)
+    operation = SmartRouting::Models::Operation.parse({ 'operation_id' => 'op_bad', 'amount' => -1 }, index: 0)
+
+    decision = router.route_safely(operation)
+
+    assert_equal 'spacepayments', decision.selected_provider
+    assert_equal 'not_routed', decision.simulated_result
+    assert decision.attempts.any? { |a| a.reason == 'operation_not_routable' }
+  end
+
+  def test_route_all_covers_every_operation_even_with_broken_ones
+    router, = build_router(providers, build_config)
+    operations = [
+      build_operation('operation_id' => 'op_ok'),
+      SmartRouting::Models::Operation.parse({ 'operation_id' => 'op_bad', 'amount' => 'много' }, index: 1)
+    ]
+
+    decisions = router.route_all(operations)
+
+    assert_equal 2, decisions.size
+    assert_equal %w[op_ok op_bad], decisions.map { |d| d.operation.id }
+  end
+
   def test_selects_from_eligible_pool
     router, = build_router(providers, build_config)
     decision = router.route(build_operation)

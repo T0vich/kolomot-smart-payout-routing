@@ -24,9 +24,20 @@ module SmartRouting
     # @param operations [Array<Models::Operation>]
     # @return [Array<Models::Decision>]
     def route_all(operations)
-      decisions = operations.map { |operation| route(operation) }
+      decisions = operations.map { |operation| route_safely(operation) }
       pool.drain!
       decisions
+    end
+
+    # Ни одна отдельная заявка не имеет права уронить весь прогон: без файла
+    # решений сдавать нечего вообще. Всё, что мы не смогли смаршрутизировать
+    # штатно, превращается в решение с явной причиной, а не в исключение.
+    def route_safely(operation)
+      return salvage(operation, "входные данные заявки некорректны: #{operation.defect}") if operation.defect?
+
+      route(operation)
+    rescue Error => e
+      salvage(operation, e.message)
     end
 
     def route(operation)
@@ -138,16 +149,23 @@ module SmartRouting
       provider = pool.fallback
       return nil if provider.nil?
 
+      # Ограничения для self-provider проверяем и записываем — это честная
+      # диагностика перегрузки. Но отказ последнего рубежа не отменяет заявку:
+      # иначе одна перегруженная секунда оставляет нас вообще без решения.
       verdict = constraints.check(provider, operation, pool)
       if verdict
-        attempts << Models::Attempt.skipped(provider.name, verdict.reason, verdict.details, stage: 'fallback')
-        return nil
+        attempts << Models::Attempt.skipped(
+          provider.name, verdict.reason,
+          "#{verdict.details}; других вариантов нет, заявка всё равно остаётся на self-provider",
+          stage: 'fallback'
+        )
       end
 
       explanation = explanations(operation, provider)
       result, latency = process(operation, provider)
       { provider: provider, card: nil, result: result, latency: latency,
-        attempted: attempted, fallback: true, explanation: explanation }
+        attempted: attempted, fallback: true, explanation: explanation,
+        over_capacity: verdict&.reason }
     end
 
     # Кандидаты, до которых очередь не дошла: они были допустимы,
@@ -172,7 +190,7 @@ module SmartRouting
       card = outcome[:card]
       fallback_used = outcome[:fallback]
       reason, details = selection_reason(selected, card, ranked, eligible, fallback_used,
-                                         outcome[:explanation])
+                                         outcome[:explanation], outcome[:over_capacity])
 
       attempts << Models::Attempt.selected(
         selected.name, reason, details,
@@ -191,7 +209,14 @@ module SmartRouting
       )
     end
 
-    def selection_reason(selected, card, ranked, eligible, fallback_used, explanation)
+    def selection_reason(selected, card, ranked, eligible, fallback_used, explanation, over_capacity = nil)
+      if fallback_used && over_capacity
+        return ['fallback_self_provider_over_capacity',
+                'внешних допустимых провайдеров не осталось, а self-provider в этот момент ' \
+                "сам упёрся в ограничение (#{over_capacity}); заявка остаётся на нём — " \
+                'отказать ей некуда']
+      end
+
       if fallback_used
         return ['fallback_self_provider',
                 'внешних допустимых провайдеров не осталось, заявка ушла на self-provider']
@@ -205,6 +230,33 @@ module SmartRouting
       runner_up = ranked.find { |provider, _| provider.name != selected.name }&.last
       reason = ranked.first&.first&.name == selected.name ? 'best_composite_score' : 'best_available_after_retry'
       [reason, "#{scorer.explain_win(card, runner_up)}. #{explanation}"]
+    end
+
+    # Заявка, которую не удалось провести штатно. Решение всё равно должно
+    # существовать: и покрытие очереди, и объяснение отказа — часть сдачи.
+    def salvage(operation, message)
+      provider = pool.fallback
+      attempts = [
+        Models::Attempt.skipped('-', 'operation_not_routable', message, stage: 'hard_filter')
+      ]
+      if provider
+        attempts << Models::Attempt.selected(
+          provider.name, 'fallback_self_provider_forced',
+          "заявку не удалось смаршрутизировать штатно (#{message}), " \
+          'она остаётся на self-provider'
+        )
+      end
+
+      Models::Decision.new(
+        operation: operation,
+        selected_provider: provider&.name,
+        attempts: attempts,
+        simulated_result: 'not_routed',
+        latency_sec: 0,
+        eligible: [],
+        profile: config.profile_name,
+        fallback_used: true
+      )
     end
 
     # Пояснения каждой стратегии по выбранному провайдеру — человеческим языком.

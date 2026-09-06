@@ -19,10 +19,21 @@ module SmartRouting
       data = [data] if data.is_a?(Hash)
       raise InvalidDataError, "Очередь должна быть массивом заявок: #{path}" unless data.is_a?(Array)
 
-      operations = data.each_with_index.map { |item, i| Models::Operation.from_json(item, index: i) }
+      operations = data.each_with_index.map { |item, i| Models::Operation.parse(item, index: i) }
+
+      defective = operations.select(&:defect?)
+      unless defective.empty?
+        warn "Предупреждение: заявок с некорректными данными — #{defective.size}. " \
+             'Решение по ним всё равно будет записано, с причиной operation_not_routable:'
+        defective.first(5).each { |operation| warn "  #{operation.defect}" }
+        warn "  … и ещё #{defective.size - 5}" if defective.size > 5
+      end
+
+      # Дубли не выбрасываем: сдаваемый файл должен покрывать очередь один
+      # в один, а расхождение по количеству — это минус на автопроверке.
       duplicates = operations.map(&:id).tally.select { |_, count| count > 1 }.keys
       unless duplicates.empty?
-        raise InvalidDataError, "В очереди повторяются operation_id: #{duplicates.join(', ')}"
+        warn "Предупреждение: в очереди повторяются operation_id: #{duplicates.join(', ')}"
       end
 
       operations

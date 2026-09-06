@@ -63,12 +63,12 @@ module SmartRouting
       end
 
       def operation_from(row)
-        Models::Operation.new(
-          'operation_id' => row['operation_id'],
-          'created_at' => row['created_at'],
-          'amount' => row['amount'].to_f,
-          'bank' => row['bank']
-        )
+        Models::Operation.new({
+                                'operation_id' => row['operation_id'],
+                                'created_at' => row['created_at'],
+                                'amount' => row['amount'].to_f,
+                                'bank' => row['bank']
+                              })
       end
 
       def build_report(rows, decisions, pool, calibrator)

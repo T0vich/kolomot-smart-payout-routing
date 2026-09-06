@@ -10,6 +10,7 @@ module SmartRouting
     module Registry
       ALL = [
         Status,
+        TrafficEnabled,
         AmountRange,
         BankFilter,
         DailyAmountLimit,

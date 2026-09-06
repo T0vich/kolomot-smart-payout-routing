@@ -93,7 +93,7 @@
 
 ## После защиты — стопкод
 
-Регламент полностью — в [TASKS-ARTEM.md](../TASKS-ARTEM.md), раздел 5. Коротко и вдвоём:
+Регламент полностью — в [TASKS-ARTEM.md](TASKS-ARTEM.md), раздел 5. Коротко и вдвоём:
 
 ```bash
 cp <выданный файл> data/operations_queue_test.json

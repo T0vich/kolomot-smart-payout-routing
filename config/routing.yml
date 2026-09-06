@@ -46,6 +46,7 @@ defaults:
   # Жёсткие ограничения. enabled: false выключает правило целиком.
   constraints:
     status: { enabled: true }
+    traffic_enabled: { enabled: true }
     amount_range: { enabled: true }
     bank_filter: { enabled: true }
     daily_amount_limit: { enabled: true }

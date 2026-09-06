@@ -119,4 +119,30 @@ class ConstraintsTest < Minitest::Test
     provider = build_provider('banks' => %w[sberbank])
     assert_nil chain.check(provider, build_operation('bank' => 'tinkoff'), build_pool([provider], config))
   end
+
+  # Валидатор организаторов исключает провайдера с нулевой долей трафика
+  # (кроме self-provider) — у нас это должно быть таким же hard-constraint.
+  def test_zero_traffic_provider_is_rejected
+    constraint = SmartRouting::Constraints::TrafficEnabled.new
+    provider = build_provider('payment_system' => 'newpay', 'traffic_percentage' => 0)
+
+    verdict = constraint.check(provider, build_operation, nil)
+
+    refute_nil verdict
+    assert_equal 'traffic_share_disabled', verdict.reason
+  end
+
+  def test_zero_traffic_self_provider_is_allowed
+    constraint = SmartRouting::Constraints::TrafficEnabled.new
+    provider = build_provider({ 'payment_system' => 'spacepayments', 'traffic_percentage' => 0 },
+                              { 'role' => 'fallback' })
+
+    assert_nil constraint.check(provider, build_operation, nil)
+  end
+
+  def test_positive_traffic_provider_is_allowed
+    constraint = SmartRouting::Constraints::TrafficEnabled.new
+
+    assert_nil constraint.check(build_provider('traffic_percentage' => 25), build_operation, nil)
+  end
 end

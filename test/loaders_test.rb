@@ -2,6 +2,7 @@
 
 require_relative 'test_helper'
 require 'tempfile'
+require 'stringio'
 
 class LoadersTest < Minitest::Test
   include TestHelper
@@ -27,31 +28,76 @@ class LoadersTest < Minitest::Test
     end
   end
 
-  def test_operation_without_id_is_rejected
+  # Битая заявка не имеет права уронить очередь: сдавать нечего, если
+  # из-за одной строки не сформировался файл решений.
+
+  def test_operation_without_id_is_marked_defective_but_kept
     with_file('[{"amount": 100}]') do |path|
-      error = assert_raises(SmartRouting::InvalidDataError) { SmartRouting::Loaders.operations(path) }
-      assert_includes error.message, 'operation_id'
+      operations = capture_warnings { SmartRouting::Loaders.operations(path) }
+      assert_equal 1, operations.size
+      assert operations.first.defect?
+      assert_includes operations.first.defect, 'operation_id'
+      assert_equal 'unknown_0', operations.first.id
     end
   end
 
-  def test_operation_with_invalid_amount_is_rejected
+  def test_operation_with_invalid_amount_is_marked_defective_but_kept
     with_file('[{"operation_id": "op_1", "amount": "много"}]') do |path|
-      error = assert_raises(SmartRouting::InvalidDataError) { SmartRouting::Loaders.operations(path) }
-      assert_includes error.message, 'amount'
+      operations = capture_warnings { SmartRouting::Loaders.operations(path) }
+      assert_equal 1, operations.size
+      assert operations.first.defect?
+      assert_includes operations.first.defect, 'amount'
     end
   end
 
-  def test_negative_amount_is_rejected
+  def test_negative_amount_is_marked_defective_but_kept
     with_file('[{"operation_id": "op_1", "amount": -5}]') do |path|
-      assert_raises(SmartRouting::InvalidDataError) { SmartRouting::Loaders.operations(path) }
+      operations = capture_warnings { SmartRouting::Loaders.operations(path) }
+      assert_equal 1, operations.size
+      assert operations.first.defect?
     end
   end
 
-  def test_duplicate_operation_ids_are_rejected
-    with_file('[{"operation_id":"op_1","amount":100},{"operation_id":"op_1","amount":200}]') do |path|
-      error = assert_raises(SmartRouting::InvalidDataError) { SmartRouting::Loaders.operations(path) }
-      assert_includes error.message, 'повторяются'
+  # Суммы строкой в платёжных выгрузках — норма, а не поломка.
+  def test_numeric_string_amount_is_accepted
+    with_file('[{"operation_id": "op_1", "amount": "15000"}]') do |path|
+      operation = SmartRouting::Loaders.operations(path).first
+      refute operation.defect?
+      assert_in_delta 15_000.0, operation.amount, 0.001
     end
+  end
+
+  def test_comma_decimal_amount_is_accepted
+    with_file('[{"operation_id": "op_1", "amount": "1500,50"}]') do |path|
+      assert_in_delta 1500.5, SmartRouting::Loaders.operations(path).first.amount, 0.001
+    end
+  end
+
+  # Дубли не выбрасываем: количество решений должно совпасть с очередью.
+  def test_duplicate_operation_ids_are_kept_with_warning
+    with_file('[{"operation_id":"op_1","amount":100},{"operation_id":"op_1","amount":200}]') do |path|
+      operations = capture_warnings { SmartRouting::Loaders.operations(path) }
+      assert_equal 2, operations.size
+      assert_includes @captured_warnings, 'повторяются'
+    end
+  end
+
+  # Строгий разбор остаётся доступным там, где остановиться уместно.
+  def test_from_json_still_raises_on_broken_operation
+    error = assert_raises(SmartRouting::InvalidDataError) do
+      SmartRouting::Models::Operation.from_json({ 'operation_id' => 'op_1', 'amount' => -5 }, index: 0)
+    end
+    assert_includes error.message, 'amount'
+  end
+
+  def capture_warnings
+    original = $stderr
+    $stderr = StringIO.new
+    result = yield
+    @captured_warnings = $stderr.string
+    result
+  ensure
+    $stderr = original
   end
 
   def test_single_object_queue_is_accepted
